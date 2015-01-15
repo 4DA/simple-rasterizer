@@ -56,16 +56,26 @@ void render_triangle(sdl_ctx *ctx, triangle *tr) {
     int sx, sy, ex, ey;
     get_triangle_bb(tr, &sx, &sy, &ex, &ey);
 
-    for (int x = sx; x < ex; x++)
-        for (int y = sy; y < ey; y++) {
-            int sd1 = edge_func(tr->Ax, tr->Bx - tr->Ax, tr->Ay, tr->By - tr->Ay, x, y);
-            int sd2 = edge_func(tr->Bx, tr->Cx - tr->Bx, tr->By, tr->Cy - tr->By, x, y);
-            int sd3 = edge_func(tr->Cx, tr->Ax - tr->Cx, tr->Cy, tr->Ay - tr->Cy, x, y);
+    //E(x+1,y) = E(x,y) + dX
+    //E(x,y+1) = E(x,y) - dX
+
+    int x = sx, y = sy;
+    
+    for (int y = sy; y < ey; y++) {
+        int sd1 = edge_func(tr->Ax, tr->Bx - tr->Ax, tr->Ay, tr->By - tr->Ay, x, y);
+        int sd2 = edge_func(tr->Bx, tr->Cx - tr->Bx, tr->By, tr->Cy - tr->By, x, y);
+        int sd3 = edge_func(tr->Cx, tr->Ax - tr->Cx, tr->Cy, tr->Ay - tr->Cy, x, y);
+
+        for (int x = sx; x < ex; x++) {
+            sd1 = sd1 + tr->By - tr->Ay;
+            sd2 = sd2 + tr->Cy - tr->By;
+            sd3 = sd3 + tr->Ay - tr->Cy;
 
             if (sd1 > 0 && sd2 > 0 && sd3 > 0) {
                 SDL_RenderDrawPoint(ctx->renderer, x, y);
             }
         }
+    }
 }
 
 int sdl_loop(sdl_ctx *ctx) {
