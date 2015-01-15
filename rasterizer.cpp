@@ -34,7 +34,7 @@ void sdl_init(struct sdl_ctx *ctx) {
     // SDL_SetRenderDrawColor(ctx->renderer, 255, 0, 0, 255);
     SDL_RenderClear(ctx->renderer);
 
-    ctx->tr = new triangle(100,100, 600, 600, 900, 100);
+    ctx->tr = new triangle(100,100, 600, 600, 300, 100);
 }
 
 int edge_func (int X, int dX, int Y, int dY, int x, int y) {
@@ -81,17 +81,28 @@ int sdl_loop(sdl_ctx *ctx) {
                 }
             }
         }
-        // ctx->tr->Ax  = 40;        
-        render_triangle(ctx, ctx->tr);
+         render_triangle(ctx, ctx->tr);
 
-        if ((ticks % 10) == 0) {
-            printf ("sdfs\n");
-            ctx->tr->Ax++;
-        }
+         float om = 3.14/16;
+         float t = ticks/6;
+
+         ctx->tr->Ax = 300 + 100 * cos(om * t);
+         ctx->tr->Ay = 300 + 100 * sin(om * t);
+         ctx->tr->Bx = 700 + 100 * cos((om * (t + 3.14/16)));
+         ctx->tr->By = 200 + 100 * sin((om * (t + 3.14/16)));
+         ctx->tr->Cx = 200 + 100 * cos(om * t);
+         ctx->tr->Cy = 200 + 100 * sin(om* t);
+         
+         // ctx->tr->Bx 
+         // ctx->tr->By
+         // ctx->tr->Cx
+         // ctx->tr->Cy
+
 
         SDL_RenderPresent(ctx->renderer);
         SDL_UpdateWindowSurface( ctx->mainwindow );
         SDL_Delay(ctx->tickDelay);
+        SDL_RenderClear(ctx->renderer);
 
         ticks++;
     }
