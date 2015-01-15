@@ -49,6 +49,9 @@ void get_triangle_bb(triangle *tr, int *sx, int *sy, int *ex, int *ey) {
     *ey = std::max(tr->Ay, std::max(tr->By, tr->Cy));
 }
 
+// algorithm by Pineda (1988)
+// http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.157.4621&rep=rep1&type=pdf
+
 void render_triangle(sdl_ctx *ctx, triangle *tr) {
     int sx, sy, ex, ey;
     get_triangle_bb(tr, &sx, &sy, &ex, &ey);
@@ -81,23 +84,18 @@ int sdl_loop(sdl_ctx *ctx) {
                 }
             }
         }
-         render_triangle(ctx, ctx->tr);
 
-         float om = 3.14/16;
-         float t = ticks/6;
+        render_triangle(ctx, ctx->tr);
 
-         ctx->tr->Ax = 300 + 100 * cos(om * t);
-         ctx->tr->Ay = 300 + 100 * sin(om * t);
-         ctx->tr->Bx = 700 + 100 * cos((om * (t + 3.14/16)));
-         ctx->tr->By = 200 + 100 * sin((om * (t + 3.14/16)));
-         ctx->tr->Cx = 200 + 100 * cos(om * t);
-         ctx->tr->Cy = 200 + 100 * sin(om* t);
-         
-         // ctx->tr->Bx 
-         // ctx->tr->By
-         // ctx->tr->Cx
-         // ctx->tr->Cy
+        float om = 3.14/16;
+        float t = ticks/6;
 
+        ctx->tr->Ax = 300 + 100 * cos(om * t);
+        ctx->tr->Ay = 300 + 100 * sin(om * t);
+        ctx->tr->Bx = 700 + 100 * cos((om * (t + 3.14/16)));
+        ctx->tr->By = 200 + 100 * sin((om * (t + 3.14/16)));
+        ctx->tr->Cx = 200 + 100 * cos(om * t);
+        ctx->tr->Cy = 200 + 100 * sin(om* t);
 
         SDL_RenderPresent(ctx->renderer);
         SDL_UpdateWindowSurface( ctx->mainwindow );
