@@ -85,9 +85,6 @@ void get_triangle_bb(triangle *tr, int *sx, int *sy, int *ex, int *ey) {
     *ey = std::max(tr->Ay, std::max(tr->By, tr->Cy));
 }
 
-// algorithm by Pineda (1988)
-// http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.157.4621&rep=rep1&type=pdf
-
 void c2barycentric(triangle &tr, int x, int y, double &l1, double &l2, double &l3) {
     l1 = ((tr.y2 - tr.y3 ) * (x - tr.x3) + (tr.x3 - tr.x2) * (y - tr.y3)) / (float)tr.det;
     l2 = ((tr.y3 - tr.y1 ) * (x - tr.x3) + (tr.x1 - tr.x3) * (y - tr.y3)) / (float)tr.det;
@@ -113,6 +110,7 @@ void sample(float u, float v, SDL_Surface *ts, Uint8 &r, Uint8 &g, Uint8 &b, Uin
     a = pp[3];
 }
 
+// sample from tex_surface and output pixel to (x, y)
 void triangle_output_pixel(sdl_ctx *ctx, uvmap *uv, float l1, float l2, SDL_Surface *tex_surface, int x, int y) {
     double l3 = (1.0 - l1 - l2);
     float u, v;
@@ -126,6 +124,8 @@ void triangle_output_pixel(sdl_ctx *ctx, uvmap *uv, float l1, float l2, SDL_Surf
     SDL_RenderDrawPoint(ctx->renderer, x, y);
 }
 
+// using algorithm by Pineda (1988)
+// http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.157.4621&rep=rep1&type=pdf
 void render_triangle(sdl_ctx *ctx, triangle *tr, uvmap *uv, SDL_Surface *tex_surface) {
     int sx, sy, ex, ey;
     get_triangle_bb(tr, &sx, &sy, &ex, &ey);
