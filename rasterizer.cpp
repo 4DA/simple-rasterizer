@@ -1,8 +1,34 @@
 #include <stdio.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_surface.h>
+#include <SDL2_image/SDL_image.h>
+
 #include <algorithm>
 #include "rasterizer.h"
+
+SDL_Surface *load_png(const char *name) {
+    static bool first_load = true;
+
+    if (first_load) {
+        // load support for the JPG and PNG image formats
+        int flags=IMG_INIT_JPG|IMG_INIT_PNG;
+        int initted=IMG_Init(flags);
+        if(initted&flags != flags) {
+            fprintf(stderr, "IMG_Init: Failed to init required jpg and png support!\n");
+            fprintf(stderr, "IMG_Init: %s\n", IMG_GetError());
+        }
+        first_load = false;
+    }
+
+    SDL_Surface *surf = IMG_Load(name);
+
+    if (!surf) {
+        fprintf (stderr, "Cannot load image: %s\n",  IMG_GetError());
+        exit(EXIT_FAILURE);
+    }
+
+    return surf;
+}
 
 void sdldie(const char *msg)
 {
@@ -34,7 +60,11 @@ void sdl_init(struct sdl_ctx *ctx) {
     // SDL_SetRenderDrawColor(ctx->renderer, 255, 0, 0, 255);
     SDL_RenderClear(ctx->renderer);
 
+    ctx->tex_surface = load_png("./Dogecoin.png");
     ctx->tr = new triangle(100,100, 600, 600, 300, 100);
+    ctx->tr->compute_det();
+
+    ctx->uv = new uvmap(0,0, 0, 1, 1, 0);
 }
 
 int edge_func (int X, int dX, int Y, int dY, int x, int y) {
@@ -52,7 +82,50 @@ void get_triangle_bb(triangle *tr, int *sx, int *sy, int *ex, int *ey) {
 // algorithm by Pineda (1988)
 // http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.157.4621&rep=rep1&type=pdf
 
-void render_triangle(sdl_ctx *ctx, triangle *tr) {
+void c2barycentric(triangle &tr, int x, int y, float &l1, float &l2, float &l3) {
+    // if (tr.det )
+    //     tr.
+
+    // printf ("y2 = %d\n", ((tr.y3 - tr.y1 ) * (x - tr.x3) + (tr.x1 - tr.x3) * (y - tr.y3)));
+    // // printf ("y2a1 = %d\n", ((tr.y3 - tr.y1 )));
+    // // printf ("y2a2 = %f\n", ((x - tr.x3)));
+    // // printf ("y2b = %f\n", (tr.x1 - tr.x3) * (y - tr.y3));
+    // printf ("det = %f\n", tr.det);
+
+    l1 = ((tr.y2 - tr.y3 ) * (x - tr.x3) + (tr.x3 - tr.x2) * (y - tr.y3)) / (float)tr.det;
+    l2 = ((tr.y3 - tr.y1 ) * (x - tr.x3) + (tr.x1 - tr.x3) * (y - tr.y3)) / (float)tr.det;
+    l3 = (1 - l1 - l2);
+
+    if (l1 < 0)
+        l1 = 0;
+    if (l2 < 0)
+        l2 = 0;
+    if (l3 < 0)
+        l3 = 0;
+}
+
+void b2cartesian(uvmap &uv, float l1, float l2, float l3, float &u, float &v) {
+    u = l1*uv.u1 + l2*uv.u2 + l3*uv.u3;
+    v = l1*uv.v1 + l2*uv.v2 + l3*uv.v3;
+}
+
+void sample(float u, float v, SDL_Surface *ts, Uint8 &r, Uint8 &g, Uint8 &b, Uint8 &a) {
+    int tx = ts->w * u;
+    int ty = ts->h * u;
+    int bpp = ts->format->BitsPerPixel / 8;
+    int pixnum = (ty * ts->w + tx);
+
+    uint8_t *pp = (uint8_t *)(ts->pixels) + pixnum * bpp;
+
+    r = pp[0];
+    g = pp[1];
+    b = pp[2];
+    a = pp[3];
+
+    // printf ("sample: tx = %d, ty = %d\n", tx, ty);
+}
+
+void render_triangle(sdl_ctx *ctx, triangle *tr, uvmap *uv, SDL_Surface *tex_surface) {
     int sx, sy, ex, ey;
     get_triangle_bb(tr, &sx, &sy, &ex, &ey);
 
@@ -72,16 +145,33 @@ void render_triangle(sdl_ctx *ctx, triangle *tr) {
             sd3 = sd3 + tr->Ay - tr->Cy;
 
             if (sd1 > 0 && sd2 > 0 && sd3 > 0) {
+                // ok, we are /inside/
+                float l1, l2, l3;
+                c2barycentric(*tr, x, y, l1, l2, l3);
+                float u,v;
+                b2cartesian(*uv, l1, l2, l3, u, v);
+
+                // printf ("T(%d, %d) = (%f, %f), l = <%f, %f, %f>\n", x, y, u, v, l1, l2, l3)
+
+                // if (u < 0 || v < 0) {
+                //     printf ("T(%d, %d) = (%f, %f), l = <%f, %f, %f>\n", x, y, u, v, l1, l2, l3);
+                // }
+
+                Uint8 r,g,b,a;
+                sample(u, v, tex_surface, r, g, b,a);
+                SDL_SetRenderDrawColor(ctx-> renderer,  r, g, b, a);
                 SDL_RenderDrawPoint(ctx->renderer, x, y);
+
             }
         }
     }
+    SDL_SetRenderDrawColor(ctx-> renderer,  0, 0, 0, 1);
 }
 
 int sdl_loop(sdl_ctx *ctx) {
     int quit = 0;
     long long ticks = 0;
-    
+
     while(!quit) {
         SDL_Event event;
     
@@ -95,22 +185,23 @@ int sdl_loop(sdl_ctx *ctx) {
             }
         }
 
-        render_triangle(ctx, ctx->tr);
+        render_triangle(ctx, ctx->tr, ctx->uv, ctx->tex_surface);
 
         float om = 3.14/16;
         float t = ticks/6;
 
-        ctx->tr->Ax = 300 + 100 * cos(om * t);
+        ctx->tr->Ax = 300 + 100 * cos((om+3.14/20) * t);
         ctx->tr->Ay = 300 + 100 * sin(om * t);
         ctx->tr->Bx = 700 + 100 * cos((om * (t + 3.14/16)));
         ctx->tr->By = 200 + 100 * sin((om * (t + 3.14/16)));
-        ctx->tr->Cx = 200 + 100 * cos(om * t);
+        ctx->tr->Cx = 200 + 200 * cos(om * t);
         ctx->tr->Cy = 200 + 100 * sin(om* t);
 
         SDL_RenderPresent(ctx->renderer);
         SDL_UpdateWindowSurface( ctx->mainwindow );
-        SDL_Delay(ctx->tickDelay);
         SDL_RenderClear(ctx->renderer);
+        SDL_Delay(ctx->tickDelay);
+
 
         ticks++;
     }
