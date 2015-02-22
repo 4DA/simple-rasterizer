@@ -24,11 +24,8 @@ triangle(int Ax_, int Ay_, int Bx_, int By_, int Cx_, int Cy_):
     Ax(Ax_), Ay(Ay_), Bx(Bx_), By(By_), Cx(Cx_), Cy(Cy_), det(0.0) {
     }
 
-    void compute_det() {
-        det = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3);
-        printf ("Triangle (%d, %d), (%d, %d), (%d, %d), D = %d\n", 
-                x1,  y1, x2,  y2, x3,  y3, det);
-    }
+    void compute_det();
+
 };
 
 struct uvmap {

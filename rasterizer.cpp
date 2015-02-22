@@ -30,6 +30,13 @@ SDL_Surface *load_png(const char *name) {
     return surf;
 }
 
+void triangle::compute_det() {
+        det = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3);
+        printf ("Triangle (%d, %d), (%d, %d), (%d, %d), D = %d\n", 
+                x1,  y1, x2,  y2, x3,  y3, det);
+}
+
+
 void sdldie(const char *msg)
 {
 	printf("%s: %s\n", msg, SDL_GetError());
@@ -63,7 +70,6 @@ void sdl_init(struct sdl_ctx *ctx) {
     ctx->tex_surface = load_png("./Dogecoin.png");
     ctx->tr = new triangle(100,100, 600, 600, 300, 100);
     ctx->tr->compute_det();
-
     ctx->uv = new uvmap(0,0, 0, 1, 1, 0);
 }
 
@@ -82,26 +88,10 @@ void get_triangle_bb(triangle *tr, int *sx, int *sy, int *ex, int *ey) {
 // algorithm by Pineda (1988)
 // http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.157.4621&rep=rep1&type=pdf
 
-void c2barycentric(triangle &tr, int x, int y, float &l1, float &l2, float &l3) {
-    // if (tr.det )
-    //     tr.
-
-    // printf ("y2 = %d\n", ((tr.y3 - tr.y1 ) * (x - tr.x3) + (tr.x1 - tr.x3) * (y - tr.y3)));
-    // // printf ("y2a1 = %d\n", ((tr.y3 - tr.y1 )));
-    // // printf ("y2a2 = %f\n", ((x - tr.x3)));
-    // // printf ("y2b = %f\n", (tr.x1 - tr.x3) * (y - tr.y3));
-    // printf ("det = %f\n", tr.det);
-
+void c2barycentric(triangle &tr, int x, int y, double &l1, double &l2, double &l3) {
     l1 = ((tr.y2 - tr.y3 ) * (x - tr.x3) + (tr.x3 - tr.x2) * (y - tr.y3)) / (float)tr.det;
     l2 = ((tr.y3 - tr.y1 ) * (x - tr.x3) + (tr.x1 - tr.x3) * (y - tr.y3)) / (float)tr.det;
-    l3 = (1 - l1 - l2);
-
-    if (l1 < 0)
-        l1 = 0;
-    if (l2 < 0)
-        l2 = 0;
-    if (l3 < 0)
-        l3 = 0;
+    l3 = (1.0 - l1 - l2);
 }
 
 void b2cartesian(uvmap &uv, float l1, float l2, float l3, float &u, float &v) {
@@ -111,7 +101,7 @@ void b2cartesian(uvmap &uv, float l1, float l2, float l3, float &u, float &v) {
 
 void sample(float u, float v, SDL_Surface *ts, Uint8 &r, Uint8 &g, Uint8 &b, Uint8 &a) {
     int tx = ts->w * u;
-    int ty = ts->h * u;
+    int ty = ts->h * v;
     int bpp = ts->format->BitsPerPixel / 8;
     int pixnum = (ty * ts->w + tx);
 
@@ -121,8 +111,19 @@ void sample(float u, float v, SDL_Surface *ts, Uint8 &r, Uint8 &g, Uint8 &b, Uin
     g = pp[1];
     b = pp[2];
     a = pp[3];
+}
 
-    // printf ("sample: tx = %d, ty = %d\n", tx, ty);
+void triangle_output_pixel(sdl_ctx *ctx, uvmap *uv, float l1, float l2, SDL_Surface *tex_surface, int x, int y) {
+    double l3 = (1.0 - l1 - l2);
+    float u, v;
+    b2cartesian(*uv, l1, l2, l3, u, v);
+
+    Uint8 r,g,b,a;
+    int dbg_x, dbg_y;
+
+    sample(u, v, tex_surface, r, g, b, a);
+    SDL_SetRenderDrawColor(ctx-> renderer,  r, g, b, a);
+    SDL_RenderDrawPoint(ctx->renderer, x, y);
 }
 
 void render_triangle(sdl_ctx *ctx, triangle *tr, uvmap *uv, SDL_Surface *tex_surface) {
@@ -133,6 +134,8 @@ void render_triangle(sdl_ctx *ctx, triangle *tr, uvmap *uv, SDL_Surface *tex_sur
     //E(x,y+1) = E(x,y) - dX
 
     int x = sx, y = sy;
+
+    uvmap *testuv = new uvmap(tr->x1, tr->y1,tr->x2, tr->y2,tr->x3, tr->y3);
     
     for (int y = sy; y < ey; y++) {
         int sd1 = edge_func(tr->Ax, tr->Bx - tr->Ax, tr->Ay, tr->By - tr->Ay, x, y);
@@ -146,22 +149,9 @@ void render_triangle(sdl_ctx *ctx, triangle *tr, uvmap *uv, SDL_Surface *tex_sur
 
             if (sd1 > 0 && sd2 > 0 && sd3 > 0) {
                 // ok, we are /inside/
-                float l1, l2, l3;
+                double l1, l2, l3;
                 c2barycentric(*tr, x, y, l1, l2, l3);
-                float u,v;
-                b2cartesian(*uv, l1, l2, l3, u, v);
-
-                // printf ("T(%d, %d) = (%f, %f), l = <%f, %f, %f>\n", x, y, u, v, l1, l2, l3)
-
-                // if (u < 0 || v < 0) {
-                //     printf ("T(%d, %d) = (%f, %f), l = <%f, %f, %f>\n", x, y, u, v, l1, l2, l3);
-                // }
-
-                Uint8 r,g,b,a;
-                sample(u, v, tex_surface, r, g, b,a);
-                SDL_SetRenderDrawColor(ctx-> renderer,  r, g, b, a);
-                SDL_RenderDrawPoint(ctx->renderer, x, y);
-
+                triangle_output_pixel(ctx, uv, l1, l2, tex_surface, x, y);
             }
         }
     }
