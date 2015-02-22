@@ -158,6 +158,43 @@ void render_triangle(sdl_ctx *ctx, triangle *tr, uvmap *uv, SDL_Surface *tex_sur
     SDL_SetRenderDrawColor(ctx-> renderer,  0, 0, 0, 1);
 }
 
+inline float func(int x, int y, float A, float B, float C) {
+
+}
+
+void output_pix(SDL_Renderer *renderer, int x, int y, int scf) {
+    SDL_Rect r;
+    r.x = x*scf;
+    r.y = y*scf;
+    r.w = scf;
+    r.h = scf;
+
+    SDL_RenderFillRect(renderer, &r);
+}
+
+int sign(int val) {
+    return val > 0 ? 1: -1;
+}
+
+void render_line(sdl_ctx *ctx, int x0, int y0, int x1, int y1, int scf) {
+    float dx = x1 - x0;
+    float dy = y1 - y0;
+    float slope = dy/dx;
+    int y = y0;
+    float error = 0;
+
+    for (int x = x0; x < x1; x++) {
+        output_pix(ctx->renderer, x, y, scf);
+        error += fabs(slope);
+
+        while (error >= 0.5) {
+            output_pix(ctx->renderer, x, y, scf);
+            y += sign(y1 - y0);
+            error -= 1.0;
+        }
+    }
+}
+
 int sdl_loop(sdl_ctx *ctx) {
     int quit = 0;
     long long ticks = 0;
@@ -175,7 +212,15 @@ int sdl_loop(sdl_ctx *ctx) {
             }
         }
 
+        SDL_SetRenderDrawColor(ctx->renderer, 0, 0, 0, 255);
+        SDL_RenderClear(ctx->renderer);
+
         render_triangle(ctx, ctx->tr, ctx->uv, ctx->tex_surface);
+
+        SDL_SetRenderDrawColor(ctx-> renderer,  255, 255, 255, 255);
+        render_line(ctx, 30, 90,  80,   120, 5);
+        render_line(ctx, 80, 120, 150,  80,  5);
+        render_line(ctx, 30, 90,  150,  80,  5);
 
         float om = 3.14/16;
         float t = ticks/6;
@@ -189,9 +234,8 @@ int sdl_loop(sdl_ctx *ctx) {
 
         SDL_RenderPresent(ctx->renderer);
         SDL_UpdateWindowSurface( ctx->mainwindow );
-        SDL_RenderClear(ctx->renderer);
-        SDL_Delay(ctx->tickDelay);
 
+        SDL_Delay(ctx->tickDelay);
 
         ticks++;
     }
